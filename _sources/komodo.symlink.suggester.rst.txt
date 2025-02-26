@@ -1,0 +1,37 @@
+komodo.symlink.suggester package
+================================
+
+Submodules
+----------
+
+komodo.symlink.suggester.cli module
+-----------------------------------
+
+.. automodule:: komodo.symlink.suggester.cli
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+komodo.symlink.suggester.configuration module
+---------------------------------------------
+
+.. automodule:: komodo.symlink.suggester.configuration
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+komodo.symlink.suggester.release module
+---------------------------------------
+
+.. automodule:: komodo.symlink.suggester.release
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: komodo.symlink.suggester
+   :members:
+   :show-inheritance:
+   :undoc-members:
