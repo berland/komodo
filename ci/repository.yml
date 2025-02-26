@@ -1,0 +1,28 @@
+numpy:
+  1.26.4:
+    source: pypi
+    make: pip
+    maintainer: ci
+  1.23.5:
+    source: pypi
+    make: pip
+    maintainer: ci
+
+python:
+  3-builtin:
+    make: sh
+    makefile: build__python-virtualenv.sh
+    maintainer: ci
+    makeopts: --virtualenv-interpreter python3
+
+setuptools:
+  69.0.3:
+    source: pypi
+    make: pip
+    maintainer: ci
+
+wheel:
+  0.42.0:
+    source: pypi
+    make: pip
+    maintainer: ci

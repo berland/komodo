@@ -1,10 +1,11 @@
-from argparse import ArgumentParser
-import yaml as yml
+import argparse
+import contextlib
 import fnmatch
-import sys
+import hashlib
 import os
 import shutil
-import hashlib
+
+from ruamel.yaml import YAML
 
 
 def get_messages_and_scripts(release_name, motd_db):
@@ -26,7 +27,7 @@ def create_inline_messages(messages, dst_path):
     for msg in messages:
         filename = hashlib.md5(msg.encode()).hexdigest()
         filename = "0Z" + filename  # for orderings sake
-        with open(os.path.join(dst_path, filename), "w") as new_file:
+        with open(os.path.join(dst_path, filename), "w", encoding="utf-8") as new_file:
             new_file.write(msg)
 
 
@@ -34,22 +35,32 @@ def copy_files(file_list, dst_path, src_path):
     if not os.path.isdir(dst_path):
         os.makedirs(dst_path)
     for file_name in file_list:
-        print("Installing message: {}".format(file_name))
+        print(f"Installing message: {file_name}")
         file_path = os.path.join(src_path, file_name)
         if not os.path.exists(file_path):
-            raise SystemExit("ERROR: Message file {} does not exisit".format(file_name))
+            msg = f"ERROR: Message file {file_name} does not exisit"
+            raise SystemExit(msg)
         shutil.copy(file_path, os.path.join(dst_path, file_name))
 
 
 def get_parser():
-    parser = ArgumentParser(description="Post messages to a release.")
-
-    parser.add_argument(
-        "--releases", "-r", nargs="+", help="The releases to post messages to.",
+    parser = argparse.ArgumentParser(
+        description="Post messages to a release.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     parser.add_argument(
-        "--motd-db", "-m", required=True, help="YML file defining the messages.",
+        "--releases",
+        "-r",
+        nargs="+",
+        help="The releases to post messages to.",
+    )
+
+    parser.add_argument(
+        "--motd-db",
+        "-m",
+        required=True,
+        help="YML file defining the messages.",
     )
 
     parser.add_argument(
@@ -67,33 +78,33 @@ def main(args=None):
     args = parser.parse_args(args=args)
 
     if not os.path.isfile(args.motd_db):
-        raise SystemExit(
-            "ERROR: The message-database {} was not found".format(args.motd_db)
-        )
-    with open(args.motd_db) as motd_db_file:
-        motd_db = yml.safe_load(motd_db_file)
+        msg = f"ERROR: The message-database {args.motd_db} was not found"
+        raise SystemExit(msg)
+    with open(args.motd_db, encoding="utf-8") as motd_db_file:
+        yml = YAML()
+        motd_db = yml.load(motd_db_file)
     motd_path = os.path.dirname(args.motd_db)
 
     if not os.path.isdir(args.komodo_prefix):
-        raise SystemExit("ERROR: Komodo-prefix {} not found".format(args.komodo_prefix))
+        msg = f"ERROR: Komodo-prefix {args.komodo_prefix} not found"
+        raise SystemExit(msg)
 
     # Create list of releases to post to
     releases = args.releases
     if not args.releases:
         releases = os.listdir(args.komodo_prefix)
-        try:
+        with contextlib.suppress(ValueError):
             releases.remove(
-                "repository"
+                "repository",
             )  # repository is not a release in komodo folder
-        except ValueError:
-            pass
 
     # Scrap all old messages
     for release_name in releases:
         komodo_path = os.path.join(args.komodo_prefix, release_name)
 
         if not os.path.isdir(komodo_path):
-            raise SystemExit("ERROR: Release {} not found".format(release_name))
+            msg = f"ERROR: Release {release_name} not found"
+            raise SystemExit(msg)
 
         dst_motd_path = os.path.join(komodo_path, "motd")
         if os.path.isdir(dst_motd_path):
@@ -105,7 +116,7 @@ def main(args=None):
     for release_name in releases:
         scripts, messages, inline = get_messages_and_scripts(release_name, motd_db)
         if not scripts and not messages and not inline:
-            print("WARNING: No messages found for release: {}".format(release_name))
+            print(f"WARNING: No messages found for release: {release_name}")
             return
 
         komodo_path = os.path.join(args.komodo_prefix, release_name)

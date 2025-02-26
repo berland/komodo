@@ -1,72 +1,55 @@
 #!/usr/bin/env python
 
 import argparse
-import os
-import sys
 
-import yaml
-
-from komodo.yaml_file_type import YamlFile
-
-VALID_VISIBILITY = ["public", "private"]
-VALID_IMPORTANCE = ["low", "medium", "high"]
-VALID_MATURITY = ["experimental", "stable", "deprecated"]
+from komodo.yaml_file_types import PackageStatusFile, RepositoryFile
 
 
-def run(package_status, repository):
-    package_status_set = set(package_status.keys())
-    repository_set = set(repository.keys())
-    if package_status_set.difference(repository_set):
-        raise SystemExit(
-            "The following packages are specified in the package status file, but not in the repository file: {}".format(
-                list(package_status_set.difference(repository_set))
-            )
-        )
-    if repository_set.difference(package_status_set):
-        raise SystemExit(
-            "The following packages are specified in the repository file, but not in the package status file: {}".format(
-                list(repository_set.difference(package_status_set))
-            )
-        )
+def run(package_status: PackageStatusFile, repository: RepositoryFile):
+    package_status_set = set(package_status.content.keys())
+    repository_set = set(repository.content.keys())
 
-    errors = []
-    for package, status in package_status.items():
-        if status.get("visibility") not in VALID_VISIBILITY:
-            errors.append(
-                (package, "Malformed visibility: {}".format(status.get("visibility")))
-            )
-            continue
+    compare_sets(
+        package_status_set,
+        repository_set,
+        message=(
+            "The following packages are specified in the package status file but not"
+            " in the repository file: "
+        ),
+    )
 
-        visibility = status["visibility"]
-        if visibility == "public":
-            if status.get("maturity") not in VALID_MATURITY:
-                errors.append(
-                    (package, "Malformed maturity: {}".format(status.get("maturity")))
-                )
-            if status.get("importance") not in VALID_IMPORTANCE:
-                errors.append(
-                    (
-                        package,
-                        "Malformed importance: {}".format(status.get("importance")),
-                    )
-                )
-    if errors:
-        raise SystemExit(
-            "\n".join(["{}: {}".format(package, msg) for package, msg in errors])
-        )
+    compare_sets(
+        repository_set,
+        package_status_set,
+        message=(
+            "The following packages are specified in the repository file, but not in"
+            " the package status file: "
+        ),
+    )
+
+
+def compare_sets(set_a: set, set_b: set, message: str) -> None:
+    if set_a.difference(set_b):
+        raise SystemExit(message + str(list(set_a.difference(set_b))))
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description=("Lint the package status file."))
+    parser = argparse.ArgumentParser(
+        description="Lint the package status file.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument(
         "package_status",
-        type=YamlFile(),
+        type=PackageStatusFile(),
         help="File with all package statuses.",
     )
     parser.add_argument(
         "repository",
-        type=YamlFile(),
-        help="Repository file with all packages listed with dependencies.",
+        type=RepositoryFile(),
+        help=(
+            "Komodo repository file with all packages listed with dependencies, "
+            "in YAML format."
+        ),
     )
     return parser
 

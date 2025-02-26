@@ -1,0 +1,42 @@
+name: Style
+
+on:
+ push:
+   branches:
+     - main
+     - 'version-**'
+ pull_request:
+
+jobs:
+  check-style:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12']
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        pip install ".[dev]"
+
+    - name: Lint with ruff
+      run: |
+        ruff check komodo tests
+    
+    - name: Format with ruff
+      run: |
+        ruff format komodo tests --check
+
+    - name: pylint
+      run: |
+        pylint komodo tests

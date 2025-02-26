@@ -1,12 +1,11 @@
+import argparse
 import os
 import sys
-from argparse import ArgumentError, ArgumentParser, ArgumentTypeError
 
 from komodo.prettier import load_yaml, prettier, prettified_yaml, write_to_file
 
 
 def load_all_releases(files):
-
     used_versions = {}
 
     for filename in files:
@@ -32,6 +31,16 @@ def find_unused_versions(used_versions, repository):
                 unused_versions[lib].append(version)
             else:
                 unused_versions[lib] = [version]
+
+    return unused_versions
+
+
+def check_missing_versions(used_versions, repository):
+    unused_versions = {}
+    for lib, versions in used_versions.items():
+        for version in versions:
+            if lib not in repository or version not in repository[lib]:
+                raise ValueError(f"Missing used version {lib}=={version}")
 
     return unused_versions
 
@@ -63,7 +72,6 @@ def _get_yml_files(path_name):
 
 
 def _valid_path_or_files(path):
-
     yml_files = []
 
     full_path = os.path.realpath(path)
@@ -72,14 +80,17 @@ def _valid_path_or_files(path):
     elif os.path.isfile(full_path) and _is_yml(full_path):
         yml_files.append(full_path)
     else:
-        raise ArgumentTypeError("{} is not a valid yml-file or folder".format(path))
+        msg = f"{path} is not a valid yml-file or folder"
+        raise argparse.ArgumentTypeError(msg)
     return yml_files
 
 
 def add_cleanup_parser(subparsers):
     cleanup_parser = subparsers.add_parser(
         "cleanup",
-        description="Clean up unused versions the repository file based on a set of releases",
+        description=(
+            "Clean up unused versions the repository file based on a set of releases"
+        ),
     )
     cleanup_parser.set_defaults(func=run_cleanup)
     cleanup_parser.add_argument(
@@ -106,12 +117,13 @@ def add_cleanup_parser(subparsers):
         nargs="+",
     )
     cleanup_parser.add_argument(
-        "--output", type=str, help="name of file to write new repository"
+        "--output",
+        type=str,
+        help="name of file to write new repository",
     )
 
 
 def add_prettier_parser(subparsers):
-
     prettier_parser = subparsers.add_parser(
         "prettier",
         description=(
@@ -129,6 +141,7 @@ def add_prettier_parser(subparsers):
         nargs="+",
     )
     prettier_parser.add_argument(
+        "--check-only",
         "--check",
         action="store_true",
         help=(
@@ -143,15 +156,16 @@ def add_prettier_parser(subparsers):
 def run_cleanup(args, parser):
     if args.check and args.stdout:
         parser.error(
-            ArgumentError(
+            argparse.ArgumentError(
                 message="Only check, stdout can not be used together!",
                 argument=args.check,
-            )
+            ),
         )
     repository = load_yaml(args.repository)
     release_files = [filename for sublist in args.releases for filename in sublist]
     used_versions = load_all_releases(release_files)
     unused_versions = find_unused_versions(used_versions, repository)
+    check_missing_versions(used_versions, repository)
 
     if args.check:
         if not unused_versions:
@@ -173,7 +187,7 @@ def run_cleanup(args, parser):
         output_file = args.output
     write_to_file(repository, output_file)
     if unused_versions:
-        print("Success! New repository file written to {}".format(output_file))
+        print(f"Success! New repository file written to {output_file}")
         print("The following software version are not in use:")
         for lib, versions in unused_versions.items():
             print(lib, versions)
@@ -182,13 +196,24 @@ def run_cleanup(args, parser):
 def run_prettier(args, _):
     release_files = [filename for sublist in args.files for filename in sublist]
 
-    sys.exit(0) if all(
-        [prettified_yaml(filename, args.check) for filename in release_files]
-    ) or not args.check else sys.exit(1)
+    if all(
+        prettified_yaml(filename, check_only=args.check_only)
+        for filename in release_files
+    ):
+        sys.exit(0)
+
+    if args.check_only is False:
+        # The prettifier has successfully reformatted all files
+        sys.exit(0)
+
+    sys.exit(1)
 
 
 def main(args=None):
-    parser = ArgumentParser(description="Tidy up release and repository files.")
+    parser = argparse.ArgumentParser(
+        description="Tidy up release and repository files.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
 
     subparsers = parser.add_subparsers(
         title="Available user entries",
